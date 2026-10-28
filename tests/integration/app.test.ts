@@ -352,10 +352,33 @@ describe("real view + engine + storage", () => {
       if (i < 25) expect(seen.has(id)).toBe(false);
       else expect(seen.has(id)).toBe(true);
       seen.add(id);
-      select();
-      click("Xác nhận");
-      click("Tiếp tục");
-      click("Chốt 18.000đ");
+      // Accessible-name lookup is covered by the other UI flows. Keep this
+      // 26-round history stress test focused on real DOM events and state.
+      const question = questionById(id);
+      const radio = root.querySelector<HTMLInputElement>(
+        `input[name="answer"][value="${question.correctOptionId}"]`,
+      )!;
+      expect(radio.closest("label")!.textContent).toContain(
+        question.options.find(
+          (option) => option.id === question.correctOptionId,
+        )!.text,
+      );
+      fireEvent.click(radio);
+      const submit = root.querySelector<HTMLButtonElement>(
+        ".answers button[type=submit]",
+      )!;
+      expect(submit.disabled).toBe(false);
+      fireEvent.click(submit);
+      fireEvent.click(
+        root.querySelector<HTMLButtonElement>(
+          ".question-modal > button.primary",
+        )!,
+      );
+      const cashout = root.querySelector<HTMLButtonElement>(
+        ".sidebar .question-panel > button.primary",
+      )!;
+      expect(cashout.textContent).toBe("Chốt 18.000đ");
+      fireEvent.click(cashout);
       fireEvent.submit(root.querySelector("form")!);
     }
     expect(seen.size).toBe(25);

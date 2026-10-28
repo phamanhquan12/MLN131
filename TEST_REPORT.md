@@ -43,7 +43,7 @@ Trên máy thông thường có Node và system libraries: `npm ci`, `npx playwr
 | `npm audit --json`                                       | 0 vulnerability sau khi nâng Vitest/coverage-v8 lên 4.1.12      |
 | `npm run preview -- --port 4173 --strictPort` + HTTP GET | Public build được phục vụ; `http://127.0.0.1:4173/` trả **200** |
 
-Unit và integration được chạy chung qua `test:coverage`, với engine/UI/storage thật; không mock phép tính thưởng. Hai script chạy riêng `test:unit` và `test:integration` đã cấu hình lọc đúng thư mục; số pass trên được ghi nhận từ lần chạy chung, không phải tuyên bố đã chạy riêng từng script.
+Unit và integration được chạy chung qua `test:coverage`, với engine/UI/storage thật; không mock phép tính thưởng. Hai script `test:unit` và `test:integration` lọc đúng thư mục. Các số coverage trên lấy từ lần chạy chung. Sau đó đã chạy riêng `npm run test:integration`: 22/22 pass trong 2 file (56,99 giây gồm khởi tạo jsdom trên WSL; tổng thời gian test 3,05 giây). `test:unit` chưa chạy riêng trong phiên này.
 
 Thời gian lần verify cuối: Vitest 30,57 giây (bao gồm startup jsdom trên filesystem WSL); Playwright 22,9 giây. Browser dùng hai worker, clock điều khiển trước khi mở trang, không sleep chờ hết câu thật.
 
@@ -88,3 +88,7 @@ Build vẫn có cảnh báo annotation `@__PURE__` từ Zod: Rollup bỏ comment
 Chưa chạy Firefox, Safari, thiết bị vật lý hoặc lớp học thực tế; E2E chỉ dùng Chromium. Rà soát học thuật được ghi riêng tại [BANK_REVIEW.md](BANK_REVIEW.md): đã đối chiếu sơ bộ với PDF, giữ nguyên ngân hàng; chưa có phản biện giảng viên hay hiệu chuẩn độ khó bằng dữ liệu người chơi. Tự động validate schema không chứng minh đáp án học thuật.
 
 Các số liệu trên là kết quả kiểm tra local. Workflow GitHub chạy cùng `npm run verify` rồi triển khai `dist/` lên GitHub Pages khi push `main`; trạng thái CI/deployment thực tế xem tại https://github.com/phamanhquan12/MLN131/actions. Chỉ hỗ trợ một máy/một tab do người dẫn kiểm soát; không tuyên bố chống DevTools, giao dịch nhiều tab hay chuyển tiền ngân hàng.
+
+## Bổ sung kiểm tra CI
+
+Lần CI đầu phát hiện test 26 vòng vượt timeout mặc định 5 giây (5,298 giây) do lặp truy vấn accessible name trên toàn cây DOM. Đã thay các truy vấn lặp trong riêng vòng stress test bằng selector cục bộ theo option ID và form/button hiện tại. Vẫn gửi DOM events qua UI thật, giữ engine/storage thật và các assertion về 25 câu trước khi lặp, đáp án theo stable ID, nút submit hợp lệ, tiền chốt và ledger 26 vòng. Các luồng khác tiếp tục kiểm tra accessible name. Không tăng timeout, retry hoặc skip. Typecheck, lint và 22 integration test đã pass sau thay đổi; trạng thái verify/deploy trên GitHub xem Actions.
