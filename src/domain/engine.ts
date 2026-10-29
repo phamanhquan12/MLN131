@@ -1,17 +1,24 @@
 import type { State, Command, Context, EndReason } from "./model";
-import { BANK_VERSION, chooseQuestion, questionById } from "./questions";
+import {
+  BANK_VERSION,
+  COURSE_ID,
+  SCHEMA_VERSION,
+  chooseQuestion,
+  questionById,
+} from "./questions";
 import { createBoard } from "./board";
-import { difficulty, outcome, seconds, terminalReason } from "./rules";
+import { RULES, difficulty, outcome, seconds, terminalReason } from "./rules";
 import { shuffle } from "./random";
 export function initialState(): State {
   return {
-    schemaVersion: 1,
+    schemaVersion: SCHEMA_VERSION,
+    courseId: COURSE_ID,
     bankVersion: BANK_VERSION,
     phase: "SETUP",
     roundId: "",
     name: "",
-    cash: 10_000,
-    lives: 1,
+    cash: RULES.startingCashVnd,
+    lives: RULES.startingLives,
     bonus: false,
     safeOpened: 0,
     board: null,

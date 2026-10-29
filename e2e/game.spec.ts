@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import bank from "../src/data/questions.json" with { type: "json" };
 import type { State } from "../src/domain/model";
-const KEY = "mln131.session.v1";
+const KEY = "vnr202.session.v2";
 async function snapshot(page: Page): Promise<State> {
   return page.evaluate((key) => JSON.parse(localStorage.getItem(key)!), KEY);
 }
@@ -58,7 +58,7 @@ test.beforeEach(async ({ page }) => {
 });
 test("E01 setup, first safe, HUD visible", async ({ page }) => {
   await start(page);
-  await cash(page, 10000);
+  await cash(page, 25000);
   await expect(page.getByText("Hệ số x1,00")).toBeVisible();
   expect((await snapshot(page)).lives).toBe(1);
   await expect(page.locator(".cell")).toHaveCount(25);
@@ -71,16 +71,14 @@ test("E01 setup, first safe, HUD visible", async ({ page }) => {
 test("E02 safe path thresholds and fixed timers", async ({ page }) => {
   await start(page);
   const expected = [
-    [0, 1, 20, 18000],
-    [1, 1, 20, 26000],
-    [2, 2, 25, 42000],
-    [3, 3, 25, 58000],
-    [4, 3, 25, 74000],
-    [5, 4, 30, 82000],
-    [6, 4, 30, 90000],
-    [7, 4, 30, 98000],
-    [8, 4, 30, 106000],
-    [9, 5, 30, 114000],
+    [0, 1, 25, 37000],
+    [1, 1, 25, 49000],
+    [2, 2, 25, 73000],
+    [3, 3, 30, 97000],
+    [4, 4, 30, 121000],
+    [5, 4, 30, 133000],
+    [6, 5, 30, 145000],
+    [7, 5, 30, 150000],
   ];
   for (const [cell, level, time, total] of expected) {
     await open(page, cell);
@@ -104,7 +102,7 @@ test("E03 wrong and timeout safe, explanation, duplicate submit", async ({
       (b as HTMLButtonElement).click();
       (b as HTMLButtonElement).click();
     });
-  await cash(page, 8800);
+  await cash(page, 22000);
   const s = await snapshot(page);
   await expect(
     page.getByText(
@@ -114,8 +112,8 @@ test("E03 wrong and timeout safe, explanation, duplicate submit", async ({
   ).toBeVisible();
   await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
   await open(page, 4);
-  await page.clock.fastForward(20000);
-  await cash(page, 7744);
+  await page.clock.fastForward(25000);
+  await cash(page, 19360);
   expect((await snapshot(page)).lives).toBe(1);
 });
 test("E04 correct mine retains life, wrong last-life mine busts", async ({
@@ -123,10 +121,10 @@ test("E04 correct mine retains life, wrong last-life mine busts", async ({
 }) => {
   await start(page);
   await play(page, 0);
-  await play(page, 15);
-  await cash(page, 9000);
+  await play(page, 18);
+  await cash(page, 18500);
   expect((await snapshot(page)).lives).toBe(1);
-  await play(page, 16, false);
+  await play(page, 19, false);
   await cash(page, 0);
   expect((await snapshot(page)).ledger).toHaveLength(1);
   await expect(page.getByRole("heading", { name: "Hết mạng" })).toBeVisible();
@@ -136,8 +134,8 @@ test("E05 life rescue retains a playable life", async ({ page }) => {
   await start(page);
   await play(page, 0);
   await play(page, 5);
-  await play(page, 15, false);
-  await cash(page, 13000);
+  await play(page, 18, false);
+  await cash(page, 24500);
   expect((await snapshot(page)).lives).toBe(1);
   expect((await snapshot(page)).phase).toBe("READY");
   await open(page, 4);
@@ -149,25 +147,31 @@ test("E06 bonus chain, life, mine and wrong consume bonus", async ({
   await play(page, 0);
   await play(page, 1);
   await play(page, 2);
-  await cash(page, 42000);
+  await cash(page, 73000);
   await play(page, 5);
-  await cash(page, 58000);
+  await cash(page, 97000);
   expect((await snapshot(page)).lives).toBe(2);
   await play(page, 3);
-  await play(page, 15);
-  await cash(page, 33000);
+  await play(page, 18);
+  await cash(page, 54500);
   expect((await snapshot(page)).bonus).toBe(false);
-  await play(page, 6, false);
+  await open(page, 6);
+  expect((await snapshot(page)).turn!.difficulty).toBe(2);
+  await submit(page, false);
+  await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
   expect((await snapshot(page)).lives).toBe(2);
 });
 test("E07 cap, feedback then reload settles exactly once", async ({ page }) => {
   await start(page);
-  for (let i = 0; i < 14; i++) await play(page, i);
-  await open(page, 14);
+  for (let i = 0; i < 7; i++) await play(page, i);
+  await open(page, 7);
   await submit(page);
   await cash(page, 150000);
   expect((await snapshot(page)).terminal).toBe("CAP_REACHED");
   expect((await snapshot(page)).ledger).toHaveLength(1);
+  expect((await snapshot(page)).lives).toBe(3);
+  expect((await snapshot(page)).safeOpened).toBe(8);
+  expect((await snapshot(page)).board![8].opened).toBe(false);
   await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
   await page.reload();
   await cash(page, 150000);
@@ -181,24 +185,23 @@ test("E08 all mines then all safe including wrong safe ends below cap", async ({
 }) => {
   await start(page);
   await play(page, 0, false);
-  let expected = 8800;
-  for (let i = 15; i < 25; i++) {
+  let expected = 22000;
+  for (let i = 18; i < 25; i++) {
     await play(page, i);
     expected = Math.floor(expected / 2);
     await cash(page, expected);
   }
-  let bonus = false;
-  for (let i = 1; i < 15; i++) {
-    expected += bonus ? 16000 : 8000;
-    bonus = i <= 3;
-    await play(page, i);
+  for (let i = 1; i < 18; i++) {
+    expected = Math.floor((expected * 88) / 100);
+    await play(page, i, false);
     await cash(page, expected);
   }
-  expect(expected).toBe(136008);
+  expect(expected).toBe(16);
   const s = await snapshot(page);
   expect(s.terminal).toBe("ALL_SAFE_OPENED");
-  expect(s.ledger[0].cash).toBe(136008);
-  expect(s.safeOpened).toBe(15);
+  expect(s.ledger[0].cash).toBe(16);
+  expect(s.safeOpened).toBe(18);
+  expect(s.lives).toBe(1);
 });
 test("E09 cashout cancel confirm reload and new round preserve session", async ({
   page,
@@ -206,21 +209,21 @@ test("E09 cashout cancel confirm reload and new round preserve session", async (
   await start(page);
   await play(page, 0);
   await dialog(page, false, () =>
-    page.getByRole("button", { name: "Chốt 18.000đ", exact: true }).click(),
+    page.getByRole("button", { name: "Chốt 37.000đ", exact: true }).click(),
   );
   expect((await snapshot(page)).phase).toBe("READY");
   await dialog(page, true, () =>
-    page.getByRole("button", { name: "Chốt 18.000đ", exact: true }).click(),
+    page.getByRole("button", { name: "Chốt 37.000đ", exact: true }).click(),
   );
   await page.reload();
-  await cash(page, 18000);
+  await cash(page, 37000);
   expect((await snapshot(page)).ledger).toHaveLength(1);
   await page
     .getByRole("button", { name: "Bắt đầu người chơi mới", exact: true })
     .click();
-  await cash(page, 10000);
+  await cash(page, 25000);
   expect((await snapshot(page)).sequence).toBe(1);
-  await expect(page.getByText(/Tổng thưởng đã chốt: 18.000đ/)).toBeVisible();
+  await expect(page.getByText(/Tổng thưởng đã chốt: 37.000đ/)).toBeVisible();
 });
 test("E10 active reload selection and deadline, overdue restore once", async ({
   page,
@@ -235,10 +238,10 @@ test("E10 active reload selection and deadline, overdue restore once", async ({
   expect(restored.turn).toEqual(saved.turn);
   await page.clock.setSystemTime(saved.turn!.deadline! + 1);
   await page.reload();
-  await cash(page, 8800);
+  await cash(page, 22000);
   expect((await snapshot(page)).turn!.result!.reason).toBe("timeout");
   await page.reload();
-  await cash(page, 8800);
+  await cash(page, 22000);
 });
 test("E11 pause clock advance reload resume", async ({ page }) => {
   await start(page);
@@ -246,7 +249,7 @@ test("E11 pause clock advance reload resume", async ({ page }) => {
   await page.clock.fastForward(5000);
   await page.getByRole("button", { name: "Tạm dừng", exact: true }).click();
   const s = await snapshot(page);
-  expect(s.turn!.remaining).toBe(15000);
+  expect(s.turn!.remaining).toBe(20000);
   await page.clock.fastForward(60000);
   await page.reload();
   expect((await snapshot(page)).phase).toBe("PAUSED");
@@ -258,7 +261,7 @@ test("E11 pause clock advance reload resume", async ({ page }) => {
     .click();
   expect((await snapshot(page)).turn!.deadline).toBe(s.turn!.deadline! + 60000);
   await submit(page);
-  await cash(page, 18000);
+  await cash(page, 37000);
 });
 test("E12 exact deadline submit and repeated callbacks only timeout once", async ({
   page,
@@ -274,9 +277,9 @@ test("E12 exact deadline submit and repeated callbacks only timeout once", async
       (b as HTMLButtonElement).click();
       (b as HTMLButtonElement).click();
     });
-  await cash(page, 8800);
+  await cash(page, 22000);
   await page.clock.fastForward(500);
-  await cash(page, 8800);
+  await cash(page, 22000);
   expect((await snapshot(page)).sequence).toBe(1);
   expect((await snapshot(page)).turn!.result!.reason).toBe("timeout");
 });
@@ -294,7 +297,7 @@ test("E13 26 short rounds use all 25 tier-1 questions before repeats", async ({
     await submit(page);
     await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
     await dialog(page, true, () =>
-      page.getByRole("button", { name: "Chốt 18.000đ", exact: true }).click(),
+      page.getByRole("button", { name: "Chốt 37.000đ", exact: true }).click(),
     );
     if (i === 10) await page.reload();
     await page
@@ -404,7 +407,7 @@ test("E17 public production contains no fixture adapter or query/global controls
     .click();
   await open(page, 0);
   const s = await snapshot(page);
-  expect(s.board!.filter((c) => c.type === "MINE")).toHaveLength(10);
+  expect(s.board!.filter((c) => c.type === "MINE")).toHaveLength(7);
 });
 test("E18 centered modal dims board, traps keyboard focus and cannot be dismissed", async ({
   page,
@@ -441,4 +444,51 @@ test("E18 centered modal dims board, traps keyboard focus and cannot be dismisse
   await page.getByRole("button", { name: "Tiếp tục", exact: true }).click();
   await expect(modal).toHaveCount(0);
   await expect(page.locator(".cell:focus")).toHaveCount(1);
+});
+test("E19 old-course snapshot requires migration; new active round survives reload", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "mln131.session.v1",
+      JSON.stringify({
+        schemaVersion: 1,
+        bankVersion: "legacy",
+        phase: "QUESTION_ACTIVE",
+        cash: 98000,
+        used: ["legacy-question"],
+      }),
+    );
+    localStorage.setItem("unrelated-app", "keep");
+  });
+  await page.reload();
+  await expect(page.getByRole("alert")).toContainText(
+    "Đã cập nhật sang VNR202",
+  );
+  await expect(page.locator(".board")).toHaveCount(0);
+  await dialog(page, false, () =>
+    page.getByRole("button", { name: "Bắt đầu VNR202", exact: true }).click(),
+  );
+  await expect(page.getByRole("alert")).toBeVisible();
+  await dialog(page, true, () =>
+    page.getByRole("button", { name: "Bắt đầu VNR202", exact: true }).click(),
+  );
+  await page
+    .getByRole("button", { name: "Bắt đầu vòng chơi", exact: true })
+    .click();
+  await cash(page, 25000);
+  await open(page, 0);
+  const state = await snapshot(page);
+  expect(state.exposure[state.turn!.questionId].count).toBe(1);
+  expect(state.courseId).toBe("VNR202");
+  expect(state.board!.filter((c) => c.type === "MINE")).toHaveLength(7);
+  await page.reload();
+  expect((await snapshot(page)).turn).toEqual(state.turn);
+  expect(
+    await page.evaluate(() => localStorage.getItem("mln131.session.v1")),
+  ).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem("unrelated-app"))).toBe(
+    "keep",
+  );
 });

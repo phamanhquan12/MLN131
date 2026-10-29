@@ -1,3 +1,4 @@
+import { STORAGE_KEY } from "../../src/application/controller";
 import type { Command, State } from "../../src/domain/model";
 import { initialState, transition } from "../../src/domain/engine";
 import { questionById } from "../../src/domain/questions";
@@ -38,13 +39,25 @@ export function play(s: State, cellId: number, correct = true): State {
   return step(answer(active(s, cellId), correct), { type: "CONTINUE" });
 }
 export class MemoryStore {
-  value: string | null = null;
+  records = new Map<string, string>();
   fail = false;
-  getItem(): string | null {
-    return this.value;
+  removeFail = false;
+  get value(): string | null {
+    return this.getItem(STORAGE_KEY);
   }
-  setItem(_key: string, value: string): void {
+  set value(value: string | null) {
+    if (value === null) this.records.delete(STORAGE_KEY);
+    else this.records.set(STORAGE_KEY, value);
+  }
+  getItem(key: string): string | null {
+    return this.records.get(key) ?? null;
+  }
+  setItem(key: string, value: string): void {
     if (this.fail) throw Error("Quota");
-    this.value = value;
+    this.records.set(key, value);
+  }
+  removeItem(key: string): void {
+    if (this.removeFail) throw Error("Denied");
+    this.records.delete(key);
   }
 }

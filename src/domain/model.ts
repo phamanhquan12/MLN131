@@ -14,6 +14,13 @@ export interface Question {
   id: string;
   difficulty: Difficulty;
   topic: string;
+  familyId: string;
+  format:
+    | "reasoning"
+    | "paired-claims"
+    | "error-diagnosis"
+    | "case-analysis"
+    | "integrated-claims";
   prompt: string;
   options: { id: string; text: string }[];
   correctOptionId: string;
@@ -61,7 +68,8 @@ export interface Settlement {
   at: number;
 }
 export interface State {
-  schemaVersion: 1;
+  schemaVersion: 2;
+  courseId: "VNR202";
   bankVersion: string;
   phase: Phase;
   roundId: string;

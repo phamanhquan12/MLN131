@@ -95,57 +95,57 @@ describe("real view + engine + storage", () => {
     fireEvent.submit(input.closest("form")!);
     expect(root.querySelector("img")).toBeNull();
     expect(root.textContent).toContain("<img src=x onerror=alert(1)>");
-    cash(10000);
+    cash(25000);
     open(0);
     const t = app.controller.state.turn!;
-    expect(t.deadline).toBe(21000);
+    expect(t.deadline).toBe(26000);
     select(false);
     select(true);
-    cash(10000);
+    cash(25000);
     expect(app.controller.state.sequence).toBe(1);
     click("Xác nhận");
-    cash(18000);
-    expect(root.textContent).toContain("+8.000đ · 10.000đ → 18.000đ");
+    cash(37000);
+    expect(root.textContent).toContain("+12.000đ · 25.000đ → 37.000đ");
     expect(root.textContent).toContain(questionById(t.questionId).explanation);
     app.controller.dispatch({ type: "SUBMIT", turnId: t.id });
-    cash(18000);
+    cash(37000);
     click("Tiếp tục");
-    expect(getByRole(root, "button", { name: "Chốt 18.000đ" })).toBeTruthy();
+    expect(getByRole(root, "button", { name: "Chốt 37.000đ" })).toBeTruthy();
   });
   it("bonus, consecutive bonus, life, mine, failed gift and life limit use engine", () => {
     load(play(ready(), 0));
     complete(1);
-    cash(26000);
+    cash(49000);
     complete(2);
-    cash(42000);
+    cash(73000);
     complete(5);
-    cash(58000);
+    cash(97000);
     expect(app.controller.state.lives).toBe(2);
     complete(3);
-    cash(66000);
-    complete(15);
-    cash(33000);
+    cash(109000);
+    complete(18);
+    cash(54500);
     expect(app.controller.state.bonus).toBe(false);
     complete(6);
     expect(app.controller.state.lives).toBe(3);
-    complete(16, false);
-    cash(20500);
+    complete(19, false);
+    cash(33250);
     expect(app.controller.state.lives).toBe(2);
   });
   it("bonus expires on wrong safe, gifts require correct answer", () => {
     load(play(play(ready(), 0), 1));
     complete(2, false);
-    cash(22880);
+    cash(43120);
     expect(app.controller.state.bonus).toBe(false);
     complete(5, false);
     expect(app.controller.state.lives).toBe(1);
   });
   it("life rescue then last-life mine loss settles once", () => {
     load(play(play(ready(), 0), 5));
-    complete(15, false);
-    cash(13000);
+    complete(18, false);
+    cash(24500);
     expect(app.controller.state.lives).toBe(1);
-    complete(16, false);
+    complete(19, false);
     cash(0);
     expect(app.controller.state.terminal).toBe("BUSTED");
     expect(app.controller.state.ledger).toHaveLength(1);
@@ -157,30 +157,30 @@ describe("real view + engine + storage", () => {
     (selected) => {
       load(active());
       if (selected) select();
-      now = 21000;
+      now = 26000;
       vi.advanceTimersByTime(100);
-      cash(8800);
+      cash(22000);
       expect(app.controller.state.turn!.result!.reason).toBe("timeout");
       expect(app.controller.state.lives).toBe(1);
       vi.advanceTimersByTime(1000);
-      cash(8800);
+      cash(22000);
     },
   );
-  it("25000 wrong safe -> 22000 x2,20, thresholds frozen per turn", () => {
+  it("25000 wrong safe -> 22000 x0,88, thresholds frozen per turn", () => {
     const s = ready();
     s.cash = 25000;
     load(s);
     open(0);
-    expect(app.controller.state.turn!.difficulty).toBe(2);
+    expect(app.controller.state.turn!.difficulty).toBe(1);
     expect(app.controller.state.turn!.deadline).toBe(26000);
     select(false);
     click("Xác nhận");
     cash(22000);
-    expect(root.textContent).toContain("x2,20");
+    expect(root.textContent).toContain("x0,88");
     click("Tiếp tục");
     complete(4, true);
     open(7);
-    expect(app.controller.state.turn!.difficulty).toBe(2);
+    expect(app.controller.state.turn!.difficulty).toBe(1);
   });
   it("cap forecast and actual delta use +5000, auto-settlement locked during feedback", () => {
     const s = ready();
@@ -206,9 +206,9 @@ describe("real view + engine + storage", () => {
     now = 6000;
     render();
     expect(app.controller.state).toEqual(saved);
-    now = 21001;
+    now = 26001;
     render();
-    cash(8800);
+    cash(22000);
     const feedback = structuredClone(app.controller.state);
     render();
     expect(app.controller.state).toEqual(feedback);
@@ -217,30 +217,30 @@ describe("real view + engine + storage", () => {
     load(active());
     now = 6000;
     click("Tạm dừng");
-    expect(app.controller.state.turn!.remaining).toBe(15000);
+    expect(app.controller.state.turn!.remaining).toBe(20000);
     now = 100000;
     render();
-    expect(root.textContent).toContain("Dừng · 15s");
+    expect(root.textContent).toContain("Dừng · 20s");
     app.controller.dispatch({
       type: "SUBMIT",
       turnId: app.controller.state.turn!.id,
     });
-    cash(10000);
+    cash(25000);
     click("Tiếp tục đồng hồ");
-    expect(app.controller.state.turn!.deadline).toBe(115000);
+    expect(app.controller.state.turn!.deadline).toBe(120000);
   });
   it("cashout cancel/confirm and new round preserve history, reset requires confirmation", () => {
     load(play(ready(), 0));
     confirm.mockReturnValueOnce(false);
-    click("Chốt 18.000đ");
-    cash(18000);
+    click("Chốt 37.000đ");
+    cash(37000);
     expect(app.controller.state.ledger).toHaveLength(0);
-    click("Chốt 18.000đ");
-    expect(confirm).toHaveBeenLastCalledWith("Chốt thưởng 18.000đ cho Minh?");
+    click("Chốt 37.000đ");
+    expect(confirm).toHaveBeenLastCalledWith("Chốt thưởng 37.000đ cho Minh?");
     expect(app.controller.state.ledger).toHaveLength(1);
     render();
     fireEvent.submit(root.querySelector("form")!);
-    cash(10000);
+    cash(25000);
     expect(app.controller.state.exposure).toEqual(
       JSON.parse(store.value!).exposure,
     );
@@ -257,22 +257,22 @@ describe("real view + engine + storage", () => {
     select();
     store.fail = true;
     click("Xác nhận");
-    expect(app.controller.state.cash).toBe(10000);
-    expect(app.controller.candidate!.cash).toBe(18000);
+    expect(app.controller.state.cash).toBe(25000);
+    expect(app.controller.candidate!.cash).toBe(37000);
     expect(getByRole(root, "alert").textContent).toContain("Chưa thể lưu");
     app.controller.dispatch({
       type: "SUBMIT",
       turnId: app.controller.state.turn!.id,
     });
-    expect(app.controller.candidate!.cash).toBe(18000);
+    expect(app.controller.candidate!.cash).toBe(37000);
     click("Tải bản sao dữ liệu");
     expect(download).toHaveBeenCalled();
     store.fail = false;
     click("Thử lưu lại");
-    cash(18000);
+    cash(37000);
     expect(app.controller.state.sequence).toBe(1);
     app.controller.retry();
-    cash(18000);
+    cash(37000);
   });
   it.each(["{", JSON.stringify({ ...ready(), bankVersion: "incompatible" })])(
     "damaged snapshot enters explicit recovery: %s",
@@ -293,6 +293,7 @@ describe("real view + engine + storage", () => {
   it("read error and recovery write failure block play", () => {
     const c = new Controller(
       {
+        removeItem: () => {},
         getItem: () => {
           throw Error("Denied");
         },
@@ -337,7 +338,7 @@ describe("real view + engine + storage", () => {
     click("Xác nhận");
     expect(getByText(root, "Nhận bonus cho lượt kế tiếp")).toBeTruthy();
     click("Tiếp tục");
-    open(15);
+    open(18);
     select();
     click("Xác nhận");
     expect(root.textContent).toContain("Còn 1 mạng.");
@@ -377,7 +378,7 @@ describe("real view + engine + storage", () => {
       const cashout = root.querySelector<HTMLButtonElement>(
         ".sidebar .question-panel > button.primary",
       )!;
-      expect(cashout.textContent).toBe("Chốt 18.000đ");
+      expect(cashout.textContent).toBe("Chốt 37.000đ");
       fireEvent.click(cashout);
       fireEvent.submit(root.querySelector("form")!);
     }
@@ -426,4 +427,33 @@ it("opens an accessible modal, traps focus and restores the board after feedback
   expect(root.querySelector("main")!.inert).toBe(false);
   expect(document.body.classList.contains("modal-open")).toBe(false);
   expect(document.activeElement?.classList.contains("cell")).toBe(true);
+});
+it("difficulty changes only on the next turn after crossing thresholds in either direction", () => {
+  const up = ready();
+  up.cash = 39999;
+  load(up);
+  open(0);
+  expect(app.controller.state.turn!.difficulty).toBe(1);
+  expect(app.controller.state.turn!.remaining).toBe(25000);
+  select();
+  click("Xác nhận");
+  cash(51999);
+  expect(app.controller.state.turn!.difficulty).toBe(1);
+  click("Tiếp tục");
+  open(4);
+  expect(app.controller.state.turn!.difficulty).toBe(2);
+  const down = ready();
+  down.cash = 65000;
+  load(down);
+  open(0);
+  expect(app.controller.state.turn!.difficulty).toBe(3);
+  expect(app.controller.state.turn!.remaining).toBe(30000);
+  select(false);
+  click("Xác nhận");
+  cash(57200);
+  expect(app.controller.state.turn!.difficulty).toBe(3);
+  click("Tiếp tục");
+  open(4);
+  expect(app.controller.state.turn!.difficulty).toBe(2);
+  expect(app.controller.state.turn!.remaining).toBe(25000);
 });

@@ -5,6 +5,7 @@ const options: ViewOptions = {
   store: {
     getItem: (key) => localStorage.getItem(key),
     setItem: (key, value) => localStorage.setItem(key, value),
+    removeItem: (key) => localStorage.removeItem(key),
   },
   now: () => Date.now(),
   seed: () => crypto.getRandomValues(new Uint32Array(1))[0],
@@ -20,7 +21,7 @@ const options: ViewOptions = {
     );
     const link = document.createElement("a");
     link.href = url;
-    link.download = "mln131-du-lieu-buoi.json";
+    link.download = "vnr202-du-lieu-buoi.json";
     link.click();
     URL.revokeObjectURL(url);
   },

@@ -6,7 +6,7 @@ import {
   terminalReason,
   money,
   multiplier,
-  DEFAULT_RULES,
+  RULES,
 } from "../../src/domain/rules";
 import type { CellType } from "../../src/domain/model";
 describe("independent money vectors", () => {
@@ -21,18 +21,18 @@ describe("independent money vectors", () => {
     boolean,
     string | null,
   ][] = [
-    ["SAFE", 10000, 1, false, true, 18000, 1, false, null],
+    ["SAFE", 25000, 1, false, true, 37000, 1, false, null],
     ["SAFE", 25000, 1, false, false, 22000, 1, false, null],
     ["SAFE", 25001, 1, false, false, 22000, 1, false, null],
     ["MINE", 25001, 2, false, true, 12500, 2, false, null],
     ["MINE", 25001, 2, false, false, 12500, 1, false, null],
     ["MINE", 25000, 1, false, false, 0, 0, false, "BUSTED"],
-    ["BONUS_GIFT", 10000, 1, false, true, 18000, 1, true, null],
-    ["SAFE", 25000, 1, true, true, 41000, 1, false, null],
+    ["BONUS_GIFT", 25000, 1, false, true, 37000, 1, true, null],
+    ["SAFE", 25000, 1, true, true, 49000, 1, false, null],
     ["SAFE", 25000, 1, true, false, 22000, 1, false, null],
     ["MINE", 25000, 1, true, true, 12500, 1, false, null],
-    ["BONUS_GIFT", 25000, 1, true, true, 41000, 1, true, null],
-    ["LIFE_GIFT", 25000, 1, true, true, 41000, 2, false, null],
+    ["BONUS_GIFT", 25000, 1, true, true, 49000, 1, true, null],
+    ["LIFE_GIFT", 25000, 1, true, true, 49000, 2, false, null],
     ["LIFE_GIFT", 25000, 1, false, false, 22000, 1, false, null],
     ["SAFE", 145000, 1, true, true, 150000, 1, false, "CAP_REACHED"],
   ];
@@ -70,7 +70,7 @@ describe("independent money vectors", () => {
                     ? 0
                     : Math.trunc(cash / 2)
                   : correct
-                    ? Math.min(150000, cash + (bonus ? 16000 : 8000))
+                    ? Math.min(150000, cash + (bonus ? 24000 : 12000))
                     : Math.trunc(cash * 0.88);
               expect(r.cash).toBe(expected);
               expect(r.lives).toBe(
@@ -85,25 +85,36 @@ describe("independent money vectors", () => {
   });
   it.each([
     [0, 1],
-    [19999, 1],
-    [20000, 2],
-    [39999, 2],
-    [40000, 3],
-    [69999, 3],
-    [70000, 4],
-    [99999, 4],
-    [100000, 5],
+    [39999, 1],
+    [40000, 2],
+    [64999, 2],
+    [65000, 3],
+    [94999, 3],
+    [95000, 4],
+    [124999, 4],
+    [125000, 5],
     [149999, 5],
   ])("threshold %i", (cash, level) => expect(difficulty(cash)).toBe(level));
   it("timers, priority and display", () => {
     expect([1, 2, 3, 4, 5].map((l) => seconds(l as 1 | 2 | 3 | 4 | 5))).toEqual(
-      [20, 25, 25, 30, 30],
+      [25, 25, 30, 30, 30],
     );
-    expect(terminalReason(150000, 0, 15)).toBe("BUSTED");
-    expect(terminalReason(150000, 1, 15)).toBe("CAP_REACHED");
-    expect(terminalReason(120000, 1, 15)).toBe("ALL_SAFE_OPENED");
+    expect(terminalReason(150000, 0, 18)).toBe("BUSTED");
+    expect(terminalReason(150000, 1, 18)).toBe("CAP_REACHED");
+    expect(terminalReason(120000, 1, 18)).toBe("ALL_SAFE_OPENED");
     expect(money(25000)).toBe("25.000đ");
-    expect(multiplier(19999)).toBe("x2,00");
-    expect(DEFAULT_RULES.mineCount).toBe(10);
+    expect(multiplier(39999)).toBe("x1,60");
+    expect(terminalReason(100000, 1, 15)).toBeNull();
+    expect(multiplier(25000)).toBe("x1,00");
+    expect(multiplier(150000)).toBe("x6,00");
+    expect(RULES).toMatchObject({
+      mineCount: 7,
+      ordinarySafeCount: 13,
+      safeTotal: 18,
+      startingCashVnd: 25000,
+      multiplierBaseVnd: 25000,
+      safeGainVnd: 12000,
+      boostedSafeGainVnd: 24000,
+    });
   });
 });

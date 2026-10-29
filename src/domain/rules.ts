@@ -1,14 +1,17 @@
 import type { CellType, Difficulty, Outcome, EndReason } from "./model";
-export const DEFAULT_RULES = {
+export const RULES = {
   rows: 5,
   cols: 5,
-  mineCount: 10,
+  mineCount: 7,
+  ordinarySafeCount: 13,
+  safeTotal: 18,
   lifeGiftCount: 2,
   bonusGiftCount: 3,
-  startingCashVnd: 10_000,
+  startingCashVnd: 25_000,
+  multiplierBaseVnd: 25_000,
   cashCapVnd: 150_000,
-  safeGainVnd: 8_000,
-  boostedSafeGainVnd: 16_000,
+  safeGainVnd: 12_000,
+  boostedSafeGainVnd: 24_000,
   safeWrongKeepNumerator: 88,
   safeWrongKeepDenominator: 100,
   startingLives: 1,
@@ -16,18 +19,18 @@ export const DEFAULT_RULES = {
   firstClickOrdinarySafe: true,
 } as const;
 export function difficulty(cash: number): Difficulty {
-  return cash < 20_000
+  return cash < 40_000
     ? 1
-    : cash < 40_000
+    : cash < 65_000
       ? 2
-      : cash < 70_000
+      : cash < 95_000
         ? 3
-        : cash < 100_000
+        : cash < 125_000
           ? 4
           : 5;
 }
 export function seconds(level: Difficulty): number {
-  return [20, 25, 25, 30, 30][level - 1];
+  return [25, 25, 30, 30, 30][level - 1];
 }
 export function outcome(
   type: CellType,
@@ -49,13 +52,19 @@ export function outcome(
       if (!correct) health--;
     }
   } else if (correct) {
-    next = Math.min(150_000, cash + (bonus ? 16_000 : 8_000));
+    next = Math.min(
+      RULES.cashCapVnd,
+      cash + (bonus ? RULES.boostedSafeGainVnd : RULES.safeGainVnd),
+    );
     if (type === "LIFE_GIFT") {
-      health = Math.min(3, lives + 1);
+      health = Math.min(RULES.maxLives, lives + 1);
       gift = "Thêm một mạng (tối đa 3)";
     }
     if (type === "BONUS_GIFT") gift = "Nhận bonus cho lượt kế tiếp";
-  } else next = Math.floor((cash * 88) / 100);
+  } else
+    next = Math.floor(
+      (cash * RULES.safeWrongKeepNumerator) / RULES.safeWrongKeepDenominator,
+    );
   return {
     cash: next,
     lives: health,
@@ -73,13 +82,13 @@ export function terminalReason(
 ): EndReason | null {
   return lives === 0
     ? "BUSTED"
-    : cash >= 150_000
+    : cash >= RULES.cashCapVnd
       ? "CAP_REACHED"
-      : safeOpened === 15
+      : safeOpened === RULES.safeTotal
         ? "ALL_SAFE_OPENED"
         : null;
 }
 export const money = (cash: number): string =>
   `${cash.toLocaleString("vi-VN")}đ`;
 export const multiplier = (cash: number): string =>
-  `x${(cash / 10_000).toLocaleString("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  `x${(cash / RULES.multiplierBaseVnd).toLocaleString("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

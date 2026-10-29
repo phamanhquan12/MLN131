@@ -7,7 +7,8 @@ let stop: () => void = () => {};
 afterEach(() => {
   stop();
   document.body.replaceChildren();
-  localStorage.clear();
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem("mln131.session.v1");
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();

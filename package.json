@@ -1,5 +1,5 @@
 {
-  "name": "mln131-do-min-tri-thuc",
+  "name": "vnr202-do-min-tri-thuc",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -14,11 +14,12 @@
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
     "test:coverage": "vitest run --coverage",
-    "build": "vite build",
+    "build": "vite build && npm run audit:build",
     "build:e2e": "vite build --mode e2e --outDir dist-e2e",
     "preview": "vite preview --host 0.0.0.0",
     "test:e2e": "npm run build:e2e && playwright test",
-    "verify": "npm run typecheck && npm run lint && npm run validate:bank && npm run test:coverage && npm run build && npm run test:e2e"
+    "verify": "npm run typecheck && npm run lint && npm run validate:bank && npm run test:coverage && npm run build && npm run test:e2e",
+    "audit:build": "tsx scripts/audit-build.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.0",

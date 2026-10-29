@@ -18,14 +18,14 @@ it("roundtrips every reachable phase, flag, terminal and all safe outcomes", () 
   states.push(s);
   states.push(step(s, { type: "CASHOUT" }));
   states.push(step(s, { type: "OPEN", cellId: 1 }));
-  for (let i = 1; i < 15; i++) {
+  for (let i = 1; i < 8; i++) {
     s = answer(active(s, i));
     states.push(s);
     s = step(s, { type: "CONTINUE" });
     states.push(s);
   }
   let busted = play(ready(), 0);
-  busted = answer(active(busted, 15), false);
+  busted = answer(active(busted, 18), false);
   states.push(busted, step(busted, { type: "CONTINUE" }));
   for (const state of states) expect(parse(state)).toEqual(state);
 });
@@ -47,7 +47,7 @@ it("rejects corruption, incompatible versions and inconsistent invariants", () =
   mutate(ready(), (s) => (s.roundId = ""));
   mutate(initialState(), (s) => (s.roundId = "bad"));
   mutate(ready(), (s) => (s.exposure["unknown"] = { count: 1, last: 1 }));
-  mutate(ready(), (s) => (s.exposure["mln-001"] = { count: 1, last: 2 }));
+  mutate(ready(), (s) => (s.exposure["vnr-1-01"] = { count: 1, last: 2 }));
   mutate(ready(), (s) => (s.sequence = 1));
   const a = active();
   mutate(a, (s) => s.used.push(s.used[0]));
@@ -64,7 +64,7 @@ it("rejects corruption, incompatible versions and inconsistent invariants", () =
   mutate(a, (s) => (s.turn!.selected = "bad"));
   mutate(a, (s) => (s.turn!.difficulty = 2));
   mutate(a, (s) => (s.turn!.id = "old"));
-  mutate(a, (s) => (s.turn!.remaining = 25000));
+  mutate(a, (s) => (s.turn!.remaining = 30000));
   mutate(a, (s) => (s.turn!.deadline = null));
   mutate(a, (s) => (s.turn = null));
   mutate(a, (s) => (s.phase = "READY"));
@@ -92,4 +92,21 @@ it("rejects changed active cash, zero paused duration and resolving an open cell
     change(bad);
     expect(() => parse(bad)).toThrow();
   }
+});
+it("rejects two distinct question IDs of the same family across levels", async () => {
+  const { questions, questionById } =
+    await import("../../src/domain/questions");
+  const first = play(ready(), 0);
+  first.cash = 49000;
+  const state = active(first, 4);
+  const id = state.turn!.questionId;
+  const replacement = questions.find(
+    (q) =>
+      q.difficulty === 2 && q.familyId === questionById(state.used[0]).familyId,
+  )!;
+  state.used[1] = replacement.id;
+  state.turn!.questionId = replacement.id;
+  delete state.exposure[id];
+  state.exposure[replacement.id] = { count: 1, last: 2 };
+  expect(() => parse(state)).toThrow("không nhất quán");
 });

@@ -1,94 +1,79 @@
-# Báo cáo kiểm thử — MLN131
+# Báo cáo kiểm thử — VNR202 migration
 
-Ngày chạy: **28/10/2026**, múi giờ Asia/Bangkok. Trạng thái cuối: **`npm run verify` hoàn tất với exit code 0**. Không có test skip; Playwright retries = 0.
+Ngày chạy local: **29/10/2026 (Asia/Bangkok)**. `npm run verify` hoàn tất **exit code 0**: typecheck → lint → validate bank → coverage → public build/audit → E2E. Không skip, không tăng timeout, Playwright retries = 0.
 
-## Môi trường thực tế
+## Môi trường
 
-| Thành phần                  | Phiên bản                                                        |
-| --------------------------- | ---------------------------------------------------------------- |
-| OS                          | Ubuntu 26.04 LTS / WSL2, kernel 6.6.87.2-microsoft-standard-WSL2 |
-| Node.js / npm               | 22.23.4 / 11.16.0                                                |
-| TypeScript / Vite           | 5.9.3 / 7.3.7                                                    |
-| Vitest / coverage-v8        | 4.1.12 / 4.1.12                                                  |
-| jsdom / Testing Library DOM | 27.4.0 / 10.4.2                                                  |
-| Playwright                  | 1.64.1                                                           |
-| Browser                     | Chromium headless shell 156.0.8078.4, revision 1248              |
-| Zod                         | 4.6.7                                                            |
+Ubuntu 26.04 LTS / WSL2, Node **22.23.4**, npm **11.16.0**, TypeScript **5.9.3**, Vite **7.3.7**, Vitest/coverage-v8 **4.1.12**, jsdom **27.4.0**, Testing Library DOM **10.4.2**, Playwright **1.64.1**, Zod **4.6.7**. Chromium headless shell **156.0.8078.4** revision 1248.
 
-Linux ban đầu không có Node. Runtime đã tải vào `/tmp/mln-runtime/node-v22.23.4-linux-x64`. npm 10.9.9 gặp lỗi giải peer dependency; chuyển npm 11.16.0 và cài thành công theo package-lock.json.
-
-Chromium đã tải bằng `npx playwright install chromium`, nhưng thiếu libnspr4/libnss3/libasound. Không có sudo không mật khẩu. Đã tải các gói Ubuntu bằng `apt-get download`, giải nén với `dpkg-deb -x` vào `/tmp/mln-browser-libs`, không cài vào hệ thống. Mirror updates trả 404 cho libnss3 nên dùng bản base `2:3.120-1ubuntu2`. Sau khi bổ sung LD_LIBRARY_PATH, Chromium khởi chạy và toàn bộ E2E chạy thật.
-
-Lệnh verify cuối chạy trong shell:
+Trong môi trường WSL này, Node và shared libraries Chromium được chuẩn bị từ phiên trước tại `/tmp/mln-runtime` và `/tmp/mln-browser-libs`. Lệnh thực tế:
 
 ```bash
 export PATH=/tmp/mln-runtime/node-v22.23.4-linux-x64/bin:$PATH
 export LD_LIBRARY_PATH=/tmp/mln-browser-libs/usr/lib/x86_64-linux-gnu
 npm run verify
+npm run test:unit
 ```
 
-Trên máy thông thường có Node và system libraries: `npm ci`, `npx playwright install --with-deps chromium`, rồi `npm run verify`. Không cần các đường dẫn `/tmp` trên máy khác.
+Máy khác dùng `npm ci`, `npx playwright install --with-deps chromium`, rồi `npm run verify`; không cần các đường dẫn tạm của máy này.
 
-## Kết quả lệnh đã chạy
+## Kết quả thực tế
 
-| Lệnh                                                     | Kết quả cuối                                                    |
-| -------------------------------------------------------- | --------------------------------------------------------------- |
-| `npm run typecheck`                                      | Pass, TypeScript strict                                         |
-| `npm run lint`                                           | Pass, không lỗi ESLint                                          |
-| `npm run validate:bank`                                  | Pass, 125 câu, 25 mỗi tầng                                      |
-| `npm run test:coverage`                                  | **70/70 pass** trong 6 file: **48 unit + 22 integration**       |
-| `npm run build`                                          | Pass, artifact public `dist/`                                   |
-| `npm run test:e2e`                                       | Pass, build riêng `dist-e2e/`, **18/18 E2E**                    |
-| `npm run verify`                                         | Pass toàn chuỗi bắt buộc, exit 0                                |
-| `npm audit --json`                                       | 0 vulnerability sau khi nâng Vitest/coverage-v8 lên 4.1.12      |
-| `npm run preview -- --port 4173 --strictPort` + HTTP GET | Public build được phục vụ; `http://127.0.0.1:4173/` trả **200** |
+| Lệnh                    | Kết quả                                                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `npm run typecheck`     | Pass với TypeScript strict                                                                                               |
+| `npm run lint`          | Pass                                                                                                                     |
+| `npm run validate:bank` | Pass: course VNR202, schema 2, đúng bankVersion, 125 câu, 25 câu/family riêng mỗi tầng                                   |
+| `npm run test:coverage` | **80/80 pass**, 7 file: **52 unit + 28 integration**; 58,85 giây gồm startup jsdom trên WSL                              |
+| `npm run test:unit`     | **52/52 pass**, 4 file; 35,01 giây gồm startup; chạy sau khi bổ sung mốc terminal priority trùng 18 safe và callback trễ |
+| `npm run build`         | Pass, Vite làm sạch dist trước khi tạo public artifact                                                                   |
+| `npm run audit:build`   | Pass: đủ 125 VNR IDs, không có ID/prompt của bank cũ trong public bundle                                                 |
+| `npm run test:e2e`      | **19/19 pass**, Chromium trên public/test build qua HTTP, 28,4 giây                                                      |
+| `npm run verify`        | Pass toàn chuỗi bắt buộc, exit 0                                                                                         |
 
-Unit và integration được chạy chung qua `test:coverage`, với engine/UI/storage thật; không mock phép tính thưởng. Hai script `test:unit` và `test:integration` lọc đúng thư mục. Các số coverage trên lấy từ lần chạy chung. Sau đó đã chạy riêng `npm run test:integration`: 22/22 pass trong 2 file (56,99 giây gồm khởi tạo jsdom trên WSL; tổng thời gian test 3,05 giây). `test:unit` chưa chạy riêng trong phiên này.
+Integration được chạy thật qua coverage cùng unit, không mock engine/chấm tiền. Script `test:integration` lọc riêng đúng thư mục; chưa chạy riêng script này cho bản VNR, không gán kết quả standalone của phiên MLN trước vào bản mới. Bank runtime bằng nguyên JSON phụ lục; metadata sourceDocument có tên alias như ghi trong BANK_REVIEW.
 
-Thời gian lần verify cuối: Vitest 30,57 giây (bao gồm startup jsdom trên filesystem WSL); Playwright 22,9 giây. Browser dùng hai worker, clock điều khiển trước khi mở trang, không sleep chờ hết câu thật.
+## Coverage
 
-## Coverage cuối
+Bao gồm mọi `src/**/*.ts`, kể cả entrypoint và file chưa import. Không exclude engine hoặc ignore nhánh để vượt ngưỡng.
 
-Coverage v8 chạy mọi file `src/**/*.ts`, kể cả entrypoint chưa được import ở một số test. Không exclude engine hoặc dùng coverage ignore. JSON, CSS và WAV không phải mã TypeScript thực thi cần đo.
+| Nhóm                               | Statements |   Branches |  Functions |      Lines |
+| ---------------------------------- | ---------: | ---------: | ---------: | ---------: |
+| Domain                             |   **100%** | **99,48%** |   **100%** |   **100%** |
+| Application, snapshot và migration |       100% |       100% |       100% |       100% |
+| UI                                 |     99,64% |     97,23% |       100% |       100% |
+| Overall (gồm main và fixture)      | **99,09%** | **98,60%** | **97,34%** | **99,34%** |
 
-| Nhóm                         | Statements |   Branches |  Functions |      Lines |
-| ---------------------------- | ---------: | ---------: | ---------: | ---------: |
-| Domain                       |   **100%** | **99,45%** |   **100%** |   **100%** |
-| Application / persistence    |       100% |       100% |       100% |       100% |
-| UI                           |     99,64% |     97,14% |       100% |       100% |
-| Overall, gồm main và fixture | **99,20%** | **98,53%** | **98,16%** | **99,47%** |
+Domain ≥95% và overall ≥85% ở cả bốn chỉ số, đều đạt. Nhánh phòng vệ settlement đã tồn tại trong ledger chưa được đi qua trực tiếp: state hợp lệ chặn các sự kiện lặp trước khi tới nhánh đó, và snapshot ledger không phù hợp bị từ chối. Main có nhánh compile-time E2E và adapter chưa đo đủ trong Vitest; E2E kiểm tra đường runtime thật, không cộng coverage E2E vào các tỷ lệ trên.
 
-Ngưỡng tự động: domain ≥95% ở cả bốn chỉ số; overall ≥85% ở cả bốn. Đều đạt. Nhánh phòng vệ chống ghi lại ledger trong `settle` chưa được thực thi trực tiếp; các command lặp đã bị từ chối sớm hơn, và snapshot có ledger vòng chưa kết thúc bị chặn. Không đánh dấu ignore nhánh này. Import fixture theo compile mode được kiểm tra bởi E2E, không cộng E2E vào coverage Vitest.
+Chi tiết khi chạy local: [coverage HTML](coverage/index.html), [JSON summary](coverage/coverage-summary.json), [Playwright HTML](playwright-report/index.html). CI upload các artifact này.
 
-Chi tiết: [báo cáo HTML](coverage/index.html), [JSON tổng hợp](coverage/coverage-summary.json), [Playwright HTML](playwright-report/index.html).
+## Nghiệp vụ và migration đã kiểm tra
 
-## Phạm vi nghiệp vụ đã chạy
+- 14 vector tiền mới với expected hằng độc lập; ma trận bốn loại ô × đúng/sai/timeout × bonus × mạng; làm tròn xuống, cap delta +5.000đ và không nhân tổng tiền.
+- Regression cấu hình: khởi điểm25.000, SAFE +12.000, bonus +24.000, mẫu số hệ số25.000, x1,00/x1,48/x0,88/x6,00, 7 mìn/13 thường/18 an toàn. Mở 15 safe chưa phải ALL_SAFE_OPENED.
+- 25 vị trí đầu ×1.000 seed cố định: đủ7/13/2/3, đầu thường, bounds và tái lập. Fixture0 có0 mìn cạnh, ô15 có2, ô17 có4. Không wrap, không tính quà, không flood; cờ không reserve câu.
+- Ngân hàng 125 VNR, 25 mỗi tầng; ID/family/format/schema/course/bankVersion và các dữ liệu lỗi. Không lặp family khi chọn25 câu cùng tầng hoặc trộn năm tầng. Không fallback. Snapshot có hai ID khác nhau cùng family bị từ chối.
+- Exposure tăng khi reserve đúng một lần, vòng mới giữ history; 26 vòng ngắn dùng hết25 câu tầng1 trước khi lặp. Giữ stable option IDs qua24 hoán vị và reload.
+- Ngưỡng 39.999/40.000,64.999/65.000,94.999/95.000,124.999/125.000; tầng/timer đóng băng trong lượt, chỉ đổi ở lượt sau khi tăng hoặc giảm tiền.
+- Deadline−1/exact/+1, pause/resume, timeout/submit lặp và callback cũ; không chốt trong câu/paused/feedback. Reload giữ câu/order/selection/deadline; feedback/finished không chấm hoặc settlement lại.
+- HUD, cashout, feedback, snapshot và ledger cùng tiền; tên markup chỉ là text; lỗi lưu giữ candidate và retry không tính lại.
+- E07: safe0..7 đúng đạt37.000,49.000,73.000,97.000,121.000,133.000,145.000,150.000; lives3, mới mở8 safe, ô8 vẫn kín, settlement đúng một lần qua reload/continue.
+- E08: safe0 sai →7 mìn18..24 đúng →17 safe còn lại sai. Oracle độc lập floor từng bước, kết thúc ALL_SAFE_OPENED với **16đ**, lives1, safeOpened18, ledger khớp. Không cần cap để kết thúc hợp lệ.
+- Migration nhận diện đúng `mln131.session.v1`, chặn bàn/chấm dữ liệu cũ, thông báo cập nhật, có tải raw backup và xác nhận. Hủy không đổi dữ liệu. Sau xác nhận VNR khởi tạo sạch25.000/7 mìn, không trộn exposure/ledger MLN.
+- Chỉ xóa key cũ của trò chơi; giữ `unrelated-app`. Không dùng localStorage.clear trong app. Migration write/cleanup lỗi khóa game; retry candidate; reload trong cleanup lỗi ưu tiên snapshot VNR đã ghi mà không reset/chấm lại. Migration lần hai giữ nguyên VNR active.
+- Không có service worker/CacheStorage app để migrate. Build Vite làm sạch dist/dist-e2e; audit kiểm tra ID và toàn bộ prompt từ tài liệu gốc cũ không có trong public assets. Tài liệu người dùng gốc được bảo toàn, không thuộc runtime/deploy.
+- Public production không nhận test-control qua query/window, fixture chỉ trong mode e2e. E18 giữ modal giữa màn hình, dim/blur, focus trap, Escape/click nền không bỏ câu, focus trả về bàn. E19 kiểm tra old-storage→confirm→VNR→reload giữ lượt.
+- Desktop1280×720 và mobile390×844: HUD không bị che, radio/Enter submit/focus/selected rõ; không lỗi page hoặc request ngoài trong luồng kiểm tra. Đã xem ảnh chụp thật của bản VNR.
 
-- 14 vector chuẩn với expected độc lập, ma trận đúng/sai/timeout × bốn loại ô × bonus × mạng; ngưỡng tiền và timer; terminal priority, cap và idempotency.
-- Bàn tại mọi vị trí đầu trên 1.000 seed cố định (25.000 bàn); count/bounds/an toàn đầu; fixture lân cận độc lập; không wrap, không flood, cắm/gỡ cờ không reserve câu. Đây là kiểm tra cấu trúc, không phải chứng minh phân phối thống kê đồng đều.
-- Ngân hàng thật đủ 125 câu, schema lỗi, selector 25 câu khác nhau mỗi tầng, exposure ít nhất/cũ nhất, 24 hoán vị phương án và chấm theo stable ID.
-- Submit tại deadline−1/deadline/deadline+1; timeout callback trễ/lặp; pause/resume; command cũ, submit kép, ô đã mở và chốt sai phase.
-- UI thực: chọn/thay radio chưa chấm, HUD/feedback/snapshot cùng tiền, cap delta +5.000đ, bonus nối tiếp, quà mạng/cứu mạng/thua, lưu lỗi giữ candidate và retry không cộng lại, tên markup chỉ là text.
-- Restore active giữ câu/order/selection/deadline, quá hạn timeout một lần; paused giữ remaining, feedback/finished không chấm lại; snapshot hỏng/khác bank có luồng tải bản sao và xác nhận. Phục hồi giữ ledger đọc được.
-- 26 vòng ngắn kiểm tra exposure qua reload và bắt đầu vòng mới; câu tầng 1 chỉ lặp sau khi đã dùng hết 25 câu; ledger và tổng thưởng được giữ.
-- E01–E18 chạy trên build tối ưu qua HTTP: cả 15 safe đúng chạm 150.000đ; mọi mìn đúng và một safe sai kết thúc ALL_SAFE_OPENED tại **136.008đ**; cashout hủy/xác nhận; khóa bàn và settlement một lần.
-- Public `dist` được test riêng, không có fixture chunk hoặc hook window/query. E2E không ghi đè dist public.
-- Desktop 1280×720 và mobile 390×844: HUD không bị panel che, radio/submit bằng bàn phím, selected/focus nhìn rõ; không lỗi page và không request ngoài origin trong luồng kiểm tra. Đã xem ảnh chụp thật ở cả hai viewport.
+Ảnh local: [bàn VNR](test-results/game-E18-centered-modal-di-ba573-cus-and-cannot-be-dismissed/board.png), [modal desktop](test-results/game-E15-desktop-mobile-HU-12d95--requests-or-console-errors/desktop.png), [modal mobile](test-results/game-E15-desktop-mobile-HU-12d95--requests-or-console-errors/mobile.png).
 
-Bản UI mới: sidebar và bàn lớn theo ảnh tham chiếu, ô an toàn có gem SVG cục bộ. Câu hỏi/feedback hiển thị trong dialog ở giữa, có backdrop tối và blur. HUD ở phía trên lớp backdrop. E18 và integration mới kiểm tra focus trap, nền inert, không bỏ câu bằng Escape/click nền, giữ scroll khi chọn đáp án và trả focus về bàn sau feedback.
+## Giới hạn và lỗi đã xử lý
 
-Ảnh: [bàn chơi](test-results/game-E18-centered-modal-di-ba573-cus-and-cannot-be-dismissed/board.png), [desktop](test-results/game-E15-desktop-mobile-HU-12d95--requests-or-console-errors/desktop.png), [mobile](test-results/game-E15-desktop-mobile-HU-12d95--requests-or-console-errors/mobile.png).
+Lần lint đầu của bản migration phát hiện import test không dùng; đã sửa rồi chạy verify thành công. Khi lập oracle non-cap, đã tính trực tiếp độc lập và sửa expected thành16đ trước khi chạy suite; không dùng engine để tạo expected. Không tăng timeout, retry hoặc skip. Stress test26 vòng tiếp tục dùng selector cục bộ cho thao tác lặp, giữ UI/engine/storage thật và assertion nội dung phương án; các luồng khác vẫn dùng accessible-name queries.
 
-## Lỗi đã xử lý và giới hạn
+Rollup còn cảnh báo comment annotation @**PURE** từ Zod; build vẫn thành công, không lọc cảnh báo. Playwright có cảnh báo môi trường NO_COLOR/FORCE_COLOR không liên quan luật game.
 
-Các lần chạy đầu phát hiện lỗi type trong helper test, JSON import attribute của Playwright và Chromium thiếu shared libraries; đều được sửa trước lần verify cuối. Một lần chạy coverage bị ENOENT vì hai tiến trình coverage trùng thư mục tạm; lần verify cuối chạy tuần tự và thành công. Không tăng timeout, thêm retries hoặc skip để vượt lỗi.
+Chưa kiểm tra Firefox/Safari, thiết bị thật hoặc lớp học thực tế. Đã rà125 đáp án/mệnh đề theo PDF, ghi riêng [BANK_REVIEW.md](BANK_REVIEW.md), chưa có phản biện giảng viên hoặc hiệu chuẩn thực nghiệm độ khó. Schema/coverage không chứng minh nội dung học thuật.
 
-Build vẫn có cảnh báo annotation `@__PURE__` từ Zod: Rollup bỏ comment không hiểu vị trí, build thành công. Không lọc bỏ cảnh báo này. Có cảnh báo môi trường NO_COLOR/FORCE_COLOR từ Playwright; không phải lỗi game.
-
-Chưa chạy Firefox, Safari, thiết bị vật lý hoặc lớp học thực tế; E2E chỉ dùng Chromium. Rà soát học thuật được ghi riêng tại [BANK_REVIEW.md](BANK_REVIEW.md): đã đối chiếu sơ bộ với PDF, giữ nguyên ngân hàng; chưa có phản biện giảng viên hay hiệu chuẩn độ khó bằng dữ liệu người chơi. Tự động validate schema không chứng minh đáp án học thuật.
-
-Các số liệu trên là kết quả kiểm tra local. Workflow GitHub chạy cùng `npm run verify` rồi triển khai `dist/` lên GitHub Pages khi push `main`; trạng thái CI/deployment thực tế xem tại https://github.com/phamanhquan12/MLN131/actions. Chỉ hỗ trợ một máy/một tab do người dẫn kiểm soát; không tuyên bố chống DevTools, giao dịch nhiều tab hay chuyển tiền ngân hàng.
-
-## Bổ sung kiểm tra CI
-
-Lần CI đầu phát hiện test 26 vòng vượt timeout mặc định 5 giây (5,298 giây) do lặp truy vấn accessible name trên toàn cây DOM. Đã thay các truy vấn lặp trong riêng vòng stress test bằng selector cục bộ theo option ID và form/button hiện tại. Vẫn gửi DOM events qua UI thật, giữ engine/storage thật và các assertion về 25 câu trước khi lặp, đáp án theo stable ID, nút submit hợp lệ, tiền chốt và ledger 26 vòng. Các luồng khác tiếp tục kiểm tra accessible name. Không tăng timeout, retry hoặc skip. Typecheck, lint và 22 integration test đã pass sau thay đổi; trạng thái verify/deploy trên GitHub xem Actions.
+Các số trên là kết quả local. [GitHub Actions](https://github.com/phamanhquan12/MLN131/actions) là nguồn trạng thái CI/deployment; workflow chỉ xuất bản dist sau khi verify pass. Giữ URL `/MLN131/` để cập nhật người dùng cũ, course runtime là VNR202. Trò chơi một máy/một tab, không tuyên bố chống sửa DevTools, giao dịch nhiều tab hoặc thanh toán ngân hàng.

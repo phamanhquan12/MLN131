@@ -1,7 +1,7 @@
 import type { State, Command, Context, CellType } from "../domain/model";
 import { Controller } from "../application/controller";
 import type { Store } from "../application/controller";
-import { difficulty, money, multiplier, outcome } from "../domain/rules";
+import { RULES, difficulty, money, multiplier, outcome } from "../domain/rules";
 import { questionById, validateBank } from "../domain/questions";
 import bank from "../data/questions.json";
 const labels: Record<CellType, string> = {
@@ -13,7 +13,7 @@ const labels: Record<CellType, string> = {
 const reasons = {
   BUSTED: "Hết mạng",
   CAP_REACHED: "Chạm trần thưởng",
-  ALL_SAFE_OPENED: "Đã mở đủ 15 ô an toàn",
+  ALL_SAFE_OPENED: `Đã mở đủ ${RULES.safeTotal} ô an toàn`,
   CASHED_OUT: "Chủ động chốt thưởng",
 };
 function node<K extends keyof HTMLElementTagNameMap>(
@@ -80,8 +80,8 @@ export function mount(
     const s = controller.state;
     const header = node("header");
     header.append(
-      node("span", "MLN131 / CHƯƠNG 6 · PHẦN I", "eyebrow"),
-      node("h1", "Dò mìn tri thức"),
+      node("span", "VNR202 / HAI MIỀN 1954–1965", "eyebrow"),
+      node("h1", "VNR202 — Dò mìn tri thức"),
       node("p", "Một lựa chọn. Một câu hỏi. Chinh phục 150.000đ.", "subtitle"),
     );
     root.append(header);
@@ -91,7 +91,12 @@ export function mount(
       const warning = node("section", "", "warning");
       warning.setAttribute("role", "alert");
       warning.append(
-        node("h2", "Vòng chơi đang khóa"),
+        node(
+          "h2",
+          controller.migrationPending
+            ? "Đã cập nhật VNR202"
+            : "Vòng chơi đang khóa",
+        ),
         node("p", controller.error),
         button("Tải bản sao dữ liệu", () =>
           options.download(controller.raw ?? ""),
@@ -100,14 +105,19 @@ export function mount(
       if (controller.candidate)
         warning.append(button("Thử lưu lại", () => controller.retry()));
       warning.append(
-        button("Phục hồi buổi mới", () => {
-          if (
-            options.confirm(
-              "Bắt đầu vòng mới từ dữ liệu phục hồi? Chỉ giữ kết quả đã chốt đọc được; vòng dở và lịch sử câu cũ sẽ không được tiếp tục.",
+        button(
+          controller.migrationPending ? "Bắt đầu VNR202" : "Phục hồi buổi mới",
+          () => {
+            if (
+              options.confirm(
+                controller.migrationPending
+                  ? "Bắt đầu VNR202 mới và xóa đúng dữ liệu trò chơi cũ? Dữ liệu ứng dụng khác được giữ nguyên."
+                  : "Bắt đầu vòng mới từ dữ liệu phục hồi? Chỉ giữ kết quả VNR202 đã chốt đọc được; vòng dở và lịch sử câu cũ sẽ không được tiếp tục.",
+              )
             )
-          )
-            controller.recover();
-        }),
+              controller.recover();
+          },
+        ),
       );
       root.append(warning);
       return;
@@ -127,8 +137,8 @@ export function mount(
       sidebar.append(node("span", "MỘT NGƯỜI CHƠI", "sidebar-mode"));
       const counts = node("div", "", "board-counts");
       for (const [label, value] of [
-        ["Mìn", "10"],
-        ["Ô an toàn còn lại", String(15 - s.safeOpened)],
+        ["Mìn", String(RULES.mineCount)],
+        ["Ô an toàn còn lại", String(RULES.safeTotal - s.safeOpened)],
         ["Mạng hiện tại", `${s.lives} / 3`],
         ["Lượt đã chơi", String(s.used.length)],
       ]) {
@@ -288,13 +298,15 @@ export function mount(
     const stats = node("div", "", "stats");
     stats.append(
       node("strong", `Hệ số ${multiplier(s.cash)}`),
-      node("span", "Trần 150.000đ"),
+      node("span", `Trần ${money(RULES.cashCapVnd)}`),
       node("span", `Mạng: ${s.lives} / 3`),
       node(
         "span",
-        s.bonus ? "✦ Bonus: +16.000đ nếu an toàn đúng" : "Bonus: chưa có",
+        s.bonus
+          ? `✦ Bonus: +${money(RULES.boostedSafeGainVnd)} nếu an toàn đúng`
+          : "Bonus: chưa có",
       ),
-      node("span", `An toàn: ${s.safeOpened} / 15`),
+      node("span", `An toàn: ${s.safeOpened} / ${RULES.safeTotal}`),
       node("span", `Tầng ${s.turn?.difficulty ?? difficulty(s.cash)}`),
     );
     h.append(cash, stats);
@@ -336,11 +348,11 @@ export function mount(
       node("h2", "Kiến thức là bước đi an toàn."),
       node(
         "p",
-        "25 ô bí mật. 10 mìn, 2 quà mạng, 3 quà bonus. Ô đầu luôn an toàn thường. Trả lời đúng ô an toàn để tăng thưởng, hoặc chốt giữa các lượt.",
+        `25 ô bí mật. ${RULES.mineCount} mìn, ${RULES.lifeGiftCount} quà mạng, ${RULES.bonusGiftCount} quà bonus. Ô đầu luôn an toàn thường. An toàn đúng +${money(RULES.safeGainVnd)}, hoặc +${money(RULES.boostedSafeGainVnd)} nếu có bonus.`,
       ),
       node(
         "p",
-        "Bắt đầu với 10.000đ và 1 mạng. Sai ô an toàn giữ 88% thưởng; gặp mìn còn nửa thưởng. Sai mìn khi còn 1 mạng sẽ mất toàn bộ thưởng. Bonus chỉ dùng ở lượt kế tiếp.",
+        `Bắt đầu với ${money(RULES.startingCashVnd)} và ${RULES.startingLives} mạng. Sai ô an toàn giữ 88% thưởng; gặp mìn còn nửa thưởng. Sai mìn khi còn 1 mạng sẽ mất toàn bộ thưởng. Bonus chỉ dùng ở lượt kế tiếp.`,
       ),
       nameForm(start, "Bắt đầu vòng chơi"),
     );
@@ -421,7 +433,7 @@ export function mount(
     }
     section.append(
       grid,
-      node("p", "✹ Mìn 10   ·   ♥ Quà mạng 2   ·   ✦ Quà bonus 3", "legend"),
+      node("p", "✹ Mìn 7   ·   ♥ Quà mạng 2   ·   ✦ Quà bonus 3", "legend"),
       node(
         "p",
         "Chuột phải hoặc chế độ cắm cờ để đánh dấu. Gỡ cờ trước khi mở.",
@@ -474,7 +486,7 @@ export function mount(
         node("strong", `Thưởng đã chốt: ${money(s.cash)}`, "settled"),
         node(
           "p",
-          `${s.used.length} lượt · ${s.safeOpened}/15 ô an toàn · ${s.name}`,
+          `${s.used.length} lượt · ${s.safeOpened}/${RULES.safeTotal} ô an toàn · ${s.name}`,
         ),
         nameForm(start, "Bắt đầu người chơi mới"),
       );

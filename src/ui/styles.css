@@ -829,3 +829,18 @@ footer button {
     display: none;
   }
 }
+
+header {
+  max-width: 305px;
+}
+header h1 {
+  font-size: 21px;
+}
+@media (max-width: 640px) {
+  header {
+    max-width: none;
+  }
+  header h1 {
+    font-size: 23px;
+  }
+}

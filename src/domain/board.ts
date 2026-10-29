@@ -1,3 +1,4 @@
+import { RULES } from "./rules";
 import type { Cell, CellType } from "./model";
 import { shuffle } from "./random";
 export function adjacency(types: CellType[], index: number): number {
@@ -12,10 +13,10 @@ export function adjacency(types: CellType[], index: number): number {
 export function createBoard(first: number, seed: number): Cell[] {
   const rest = shuffle<CellType>(
     [
-      ...Array<CellType>(10).fill("MINE"),
-      ...Array<CellType>(2).fill("LIFE_GIFT"),
-      ...Array<CellType>(3).fill("BONUS_GIFT"),
-      ...Array<CellType>(9).fill("SAFE"),
+      ...Array<CellType>(RULES.mineCount).fill("MINE"),
+      ...Array<CellType>(RULES.lifeGiftCount).fill("LIFE_GIFT"),
+      ...Array<CellType>(RULES.bonusGiftCount).fill("BONUS_GIFT"),
+      ...Array<CellType>(RULES.ordinarySafeCount - 1).fill("SAFE"),
     ],
     seed,
   ).items;

@@ -1,10 +1,16 @@
 import { z } from "zod";
 import type { State } from "../domain/model";
-import { BANK_VERSION, questionById, questions } from "../domain/questions";
+import {
+  BANK_VERSION,
+  COURSE_ID,
+  SCHEMA_VERSION,
+  questionById,
+  questions,
+} from "../domain/questions";
 import { adjacency } from "../domain/board";
-import { difficulty, seconds, terminalReason } from "../domain/rules";
+import { RULES, difficulty, seconds, terminalReason } from "../domain/rules";
 const int = z.number().int().nonnegative();
-const cash = int.max(150_000),
+const cash = int.max(RULES.cashCapVnd),
   timestamp = z.number().nonnegative().finite();
 const reason = z.enum([
   "BUSTED",
@@ -15,7 +21,7 @@ const reason = z.enum([
 const result = z
   .object({
     cash,
-    lives: int.max(3),
+    lives: int.max(RULES.maxLives),
     bonus: z.boolean(),
     delta: z.number().int(),
     correct: z.boolean(),
@@ -25,7 +31,8 @@ const result = z
   .strict();
 const schema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(SCHEMA_VERSION),
+    courseId: z.literal(COURSE_ID),
     bankVersion: z.literal(BANK_VERSION),
     phase: z.enum([
       "SETUP",
@@ -39,9 +46,9 @@ const schema = z
     roundId: z.string(),
     name: z.string().max(80),
     cash,
-    lives: int.max(3),
+    lives: int.max(RULES.maxLives),
     bonus: z.boolean(),
-    safeOpened: int.max(15),
+    safeOpened: int.max(RULES.safeTotal),
     board: z
       .array(
         z
@@ -129,12 +136,22 @@ export function parseSnapshot(raw: string): State {
   requireValid(
     s.used.every((id) => validIds.has(id) && s.exposure[id]?.count > 0),
   );
+  requireValid(
+    new Set(s.used.map((id) => questionById(id).familyId)).size ===
+      s.used.length,
+  );
   if (s.board) {
     const types = s.board.map((c) => c.type);
     requireValid(
       ["MINE", "SAFE", "LIFE_GIFT", "BONUS_GIFT"].every(
         (type, i) =>
-          types.filter((t) => t === type).length === [10, 10, 2, 3][i],
+          types.filter((t) => t === type).length ===
+          [
+            RULES.mineCount,
+            RULES.ordinarySafeCount,
+            RULES.lifeGiftCount,
+            RULES.bonusGiftCount,
+          ][i],
       ),
     );
     requireValid(
@@ -211,8 +228,8 @@ export function parseSnapshot(raw: string): State {
     requireValid(
       !s.roundId &&
         !s.board &&
-        s.cash === 10_000 &&
-        s.lives === 1 &&
+        s.cash === RULES.startingCashVnd &&
+        s.lives === RULES.startingLives &&
         !s.bonus &&
         s.flags.length === 0,
     );
@@ -244,7 +261,11 @@ export function parseSnapshot(raw: string): State {
 export function readableLedger(raw: string | null): State["ledger"] {
   try {
     const value = z
-      .object({ ledger: schema.shape.ledger })
+      .object({
+        courseId: z.literal(COURSE_ID),
+        schemaVersion: z.literal(SCHEMA_VERSION),
+        ledger: schema.shape.ledger,
+      })
       .parse(JSON.parse(raw ?? "null"));
     const unique = new Map(value.ledger.map((entry) => [entry.roundId, entry]));
     return [...unique.values()];
